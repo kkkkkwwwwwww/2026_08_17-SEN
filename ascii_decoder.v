@@ -11,8 +11,7 @@ module ascii_decoder (
     output reg o_right,
     output reg o_up,
     output reg o_down,
-    output reg o_get,
-    output reg o_save_load
+    output reg o_get
 );
     reg [7:0] char2, char1, char0;  
 
@@ -26,7 +25,6 @@ module ascii_decoder (
             o_up <= 1'b0;
             o_down <= 1'b0;
             o_get <= 1'b0;
-            o_save_load <= 1'b0;
             char2 <= 8'd0;
             char1 <= 8'd0;
             char0 <= 8'd0;
@@ -39,7 +37,6 @@ module ascii_decoder (
             o_up <= 1'b0;
             o_down <= 1'b0;
             o_get <= 1'b0;
-            o_save_load <= 1'b0;
 
             if (rx_done) begin
                 char2 <= char1;
@@ -59,7 +56,6 @@ module ascii_decoder (
                     "n": o_right <= 1'b1;
                     "u": o_up <= 1'b1;
                     "d": o_down <= 1'b1;
-                    "v": o_save_load <= 1'b1;
                     default: ;
                 endcase
             end

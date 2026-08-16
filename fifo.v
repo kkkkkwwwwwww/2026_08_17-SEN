@@ -1,94 +1,107 @@
 `timescale 1ns / 1ps
+//////////////////////////////////////////////////////////////////////////////////
+// Company: 
+// Engineer: 
+// 
+// Create Date: 2026/08/10 15:21:24
+// Design Name: 
+// Module Name: fifo
+// Project Name: 
+// Target Devices: 
+// Tool Versions: 
+// Description: 
+// 
+// Dependencies: 
+// 
+// Revision:
+// Revision 0.01 - File Created
+// Additional Comments:
+// 
+//////////////////////////////////////////////////////////////////////////////////
 
-module fifo #(
-    parameter WIDTH = 2
-) (
+
+module fifo #(parameter width = 2)(
     input clk,
     input reset,
     input push,
     input pop,
-    input [7:0] wdata,  //push data
-    output [7:0] rdata,  //pop data
+    input [7:0] wdata,
+    output [7:0] rdata,
     output full,
     output empty
 );
+  wire [width-1:0] w_wptr, w_rptr;
 
-    wire [WIDTH-1:0] w_wptr, w_rptr;
+ register_file #(.width(2))
+ U_REG_FILE (
+    .clk(clk),
+    .waddr(w_wptr),
+    .raddr(w_rptr),
+    .wdata(wdata),
+    .we(~full & push),
+    .rdata(rdata)
+ );
 
-    register_file #(
-        .WIDTH(2)
-    ) U_REG_FILE (
-        .clk(clk),
-        .waddr(w_wptr),
-        .raddr(w_rptr),
-        .wdata(wdata),
-        .we((~full & push)),
-        .rdata(rdata)
-    );
-
-    fifo_ptr_unit #(
-        .WIDTH(2)
-    ) U_CONTROL_UNIT (
-        .clk  (clk),
-        .reset(reset),
-        .push (push),
-        .pop  (pop),
-        .wptr (w_wptr),
-        .rptr (w_rptr),
-        .full (full),
-        .empty(empty)
-    );
-
+ fifo_control_unit #(
+    .width(2)
+) U_CON_UNIT(
+    .clk(clk),
+    .reset(reset),
+    .push(push),
+    .pop(pop),
+    .wptr(w_wptr),
+    .rptr(w_rptr),
+    .full(full),
+    .empty(empty)
+);
 endmodule
 
 module register_file #(
-    parameter WIDTH = 2
+    parameter width = 2
 ) (
     input clk,
-    input [WIDTH - 1:0] waddr,
-    input [WIDTH -1:0] raddr,
+    input [width-1:0] waddr,
+    input [width-1:0] raddr,
     input [7:0] wdata,
     input we,
     output [7:0] rdata
 );
 
-    parameter DEPTH = 2 ** WIDTH;
-    reg [7:0] register_file[0:DEPTH-1];
+    parameter depth = 2 ** width;
+    reg [7:0] register_file[0:depth-1];
 
     always @(posedge clk) begin
         if (we) begin
             register_file[waddr] <= wdata;
         end
     end
-    //rdata : CL output 조합출력
-    assign rdata = register_file[raddr];
 
+    //rdata:cl output
+    assign rdata = register_file[raddr];
 endmodule
 
-module fifo_ptr_unit #(
-    parameter WIDTH = 2
+module fifo_control_unit #(
+    parameter width = 2
 ) (
     input clk,
     input reset,
     input push,
     input pop,
-    output [WIDTH -1:0] wptr,
-    output [WIDTH-1:0] rptr,
+    output [width-1:0] wptr,
+    output [width-1:0] rptr,
     output full,
     output empty
 );
-
-    reg [WIDTH-1:0] wptr_reg, wptr_next;
-    reg [WIDTH-1:0] rptr_reg, rptr_next;
+    reg [width-1:0] wptr_reg, wptr_next;
+    reg [width-1:0] rptr_reg, rptr_next;
     reg full_reg, full_next;
     reg empty_reg, empty_next;
 
-    assign wptr  = wptr_reg;
-    assign rptr  = rptr_reg;
-    assign full  = full_reg;
+    assign wptr = wptr_reg;
+    assign rptr = rptr_reg;
+    assign full = full_reg;
     assign empty = empty_reg;
-
-    always @(posedge clk, posedge reset) begin
+    always @(posedge clk) begin
         if (reset) begin
             wptr_reg  <= 0;
             rptr_reg  <= 0;
@@ -102,44 +115,37 @@ module fifo_ptr_unit #(
         end
     end
 
-    //next CL
+    //next cl
     always @(*) begin
         wptr_next  = wptr_reg;
         rptr_next  = rptr_reg;
         full_next  = full_reg;
         empty_next = empty_reg;
-        //case를 조건으로 넣어줌 . state가 없으니까
         case ({
             push, pop
         })
             2'b00: begin
                 //init
-                //reset으로 초기상태 했으니까 pass
             end
             2'b01: begin
                 //pop only
-                if (!empty_reg) begin
-                    rptr_next = rptr_reg + 1;
-                    full_next = 1'b0;
-                    //wptr은 변화가 없었으므로 reg든 next든 상관 x
-                    if (wptr_reg == rptr_next) begin
-                        empty_next = 1'b1;
-                    end
-                end
+               if (!empty) begin
+        rptr_next = rptr_reg + 1;
+        full_next = 1'b0;
+                if (wptr_reg == rptr_next) empty_next = 1'b1;
+               end
             end
             2'b10: begin
-                //push only
-                if (!full_reg) begin
-                    wptr_next  = wptr_reg + 1;
-                    empty_next = 1'b0;
-                    if (wptr_next == rptr_reg) begin
-                        full_next = 1'b1;
-                    end
-                end
+                //pugh only
+                if (!full) begin
+        wptr_next  = wptr_reg + 1;
+        empty_next = 1'b0;
+                
+                if (wptr_next == rptr_reg) full_next = 1'b1;
+            end
             end
             2'b11: begin
-                //push_pop
-                //full
+                //push pop
                 if (full) begin
                     rptr_next = rptr_reg + 1;
                     full_next = 1'b0;
@@ -153,5 +159,4 @@ module fifo_ptr_unit #(
             end
         endcase
     end
-
 endmodule
