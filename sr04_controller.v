@@ -5,6 +5,7 @@ module Top_SR04 (
     input        reset,
     input        btn_start,
     output       trigger,
+    input        echo,
     output [3:0] fnd_com,
     output [7:0] fnd_data,
     output led_done
