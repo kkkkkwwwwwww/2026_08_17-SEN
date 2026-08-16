@@ -6,14 +6,21 @@ module time_ascii_sender (
     input get_trigger,
     input fifo_full,
     input sw_detail,
+    input [1:0] sw_mode,
     input [6:0] msec,
     input [5:0] sec,
     input [5:0] min,
     input [4:0] hour,
+    input [8:0] distance,
+    input [7:0] temp,
+    input [7:0] hum,
     output reg [7:0] tx_data,
     output reg tx_push,
     output reg busy
 );
+    wire [8:0] distance_v = distance;
+    wire [7:0] hum_v = hum;
+    wire [7:0] temp_v = temp; 
     wire [6:0] msec_v = msec;
     wire [5:0] sec_v = sec;
     wire [5:0] min_v = min;
@@ -38,21 +45,38 @@ module time_ascii_sender (
                 IDLE: begin
                     busy <= 1'b0;
                     if (get_trigger) begin
-                        if (!sw_detail) begin
+                      case(sw_mode)
+                      2'b01: begin
+                        digit3 <= 4'd0;
+                        digit2 <= (distance_v / 100) % 10;
+                        digit1 <= (distance_v / 10) % 10;
+                        digit0 <= (distance_v) % 10;
+                      end 
+                      2'b10: begin
+                       digit3 <= (temp_v / 10) % 10;
+                        digit2 <= (temp_v) % 10;
+                        digit1 <= (hum_v / 10) % 10;
+                        digit0 <= (hum_v) % 10;
+                      end
+                      default: begin
+                        if(!sw_detail) begin
                             digit3 <= (sec_v / 10) % 10;
-                            digit2 <= sec_v % 10;
+                            digit2 <= (sec_v) % 10;
                             digit1 <= (msec_v / 10) % 10;
-                            digit0 <= msec_v % 10;
-                        end else begin
-                            digit3 <= (hour_v / 10) % 10;
-                            digit2 <= hour_v % 10;
+                            digit0 <= (msec_v) % 10;
+                      end else begin
+                          digit3 <= (hour_v / 10) % 10;
+                            digit2 <= (hour_v) % 10;
                             digit1 <= (min_v / 10) % 10;
-                            digit0 <= min_v % 10;
-                        end
-                        busy <= 1'b1;
-                        state <= D0;
-                    end
+                            digit0 <= (min_v) % 10;
+                      end
+                      end
+                      endcase
+                      busy <= 1'b1;
+                      state <= (sw_mode == 2'b01) ? D1 : D0;
+                      end
                 end
+
 
                 D0: begin
                     if (!fifo_full) begin
@@ -65,7 +89,7 @@ module time_ascii_sender (
                     if (!fifo_full) begin
                         tx_data <= digit2 + 8'h30;
                         tx_push <= 1'b1;
-                        state <= COLON;
+                        state <= (sw_mode == 2'b01) ? D2 : COLON;
                     end
                 end
                 COLON: begin
